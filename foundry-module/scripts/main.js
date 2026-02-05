@@ -194,13 +194,16 @@ Hooks.on("getActorDirectoryEntryContext", (html, options) => {
 
 // Add button to actor directory header
 Hooks.on("renderActorDirectory", (app, html) => {
+  // Ensure html is a jQuery object
+  const $html = html instanceof jQuery ? html : $(html);
+  
   const importBtn = $(`
     <button class="ddb-import-button">
       <i class="fas fa-file-import"></i> Import from D&D Beyond
     </button>
   `);
   
-  html.find(".directory-header .action-buttons").append(importBtn);
+  $html.find(".directory-header .action-buttons").append(importBtn);
   
   importBtn.click(() => {
     new DDBImporterDialog().render(true);
