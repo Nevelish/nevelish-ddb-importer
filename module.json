@@ -5,7 +5,8 @@
   "version": "1.0.0",
   "authors": [
     {
-      "name": "NevelishTV"
+      "name": "Nevelish",
+      "url": "https://github.com/Nevelish"
     }
   ],
   "compatibility": {
@@ -32,5 +33,9 @@
         "type": "system"
       }
     ]
-  }
+  },
+  "manifest": "https://raw.githubusercontent.com/Nevelish/ddb-importer/main/module.json",
+  "download": "https://github.com/Nevelish/ddb-importer/archive/refs/heads/main.zip",
+  "url": "https://github.com/Nevelish/ddb-importer",
+  "bugs": "https://github.com/Nevelish/ddb-importer/issues"
 }
