@@ -1,4 +1,4 @@
-.ddb-import-button {
+.nevelish-ddb-import-button {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
@@ -10,21 +10,58 @@
   margin-left: 5px;
 }
 
-.ddb-import-button:hover {
+.nevelish-ddb-import-button:hover {
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
 }
 
-.ddb-import-form {
+/* Tidy5e Sheet specific styling */
+.nevelish-ddb-sync-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white !important;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.nevelish-ddb-sync-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4);
+  color: white !important;
+  background: linear-gradient(135deg, #7c8ff5 0%, #8b5bb8 100%);
+}
+
+.nevelish-ddb-sync-button i {
+  font-size: 11px;
+}
+
+/* Integration with Tidy5e utility toolbar */
+.tidy5e-sheet .utility-toolbar .nevelish-ddb-sync-button,
+.tidy5e-sheet .sheet-header .controls .nevelish-ddb-sync-button {
+  margin-left: 6px;
+  height: fit-content;
+}
+
+.nevelish-ddb-import-form {
   padding: 15px;
 }
 
-.ddb-import-form textarea {
+.nevelish-ddb-import-form textarea {
   resize: vertical;
   min-height: 200px;
 }
 
-.ddb-import-form #import-btn {
+.nevelish-ddb-import-form #import-btn {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
@@ -35,7 +72,7 @@
   transition: all 0.2s ease;
 }
 
-.ddb-import-form #import-btn:hover {
+.nevelish-ddb-import-form #import-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
