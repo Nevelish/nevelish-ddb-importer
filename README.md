@@ -1,1 +1,1 @@
-"https://github.com/Nevelish/ddb-importer/releases/download/v1.0.1/foundry-module.zip"
+"https://github.com/Nevelish/ddb-importer/releases/download/v1.0.2/foundry-module.zip"
