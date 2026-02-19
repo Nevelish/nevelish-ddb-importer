@@ -80,7 +80,8 @@ class DDBImporterDialog extends FormApplication {
     event.preventDefault();
     const textarea = this.element.find("#paste-area");
     const data = textarea.val();
-    
+    const importCompendium = this.element.find("#import-compendium").is(":checked");
+
     if (!data) {
       ui.notifications.error("Please paste character data from D&D Beyond extension");
       return;
@@ -88,20 +89,31 @@ class DDBImporterDialog extends FormApplication {
 
     try {
       const importData = JSON.parse(data);
-      
+
       if (!importData.characterData) {
         ui.notifications.error("Invalid data format. Please use 'Copy Character Data' from the extension.");
         return;
       }
 
+      // Import compendium data first if available and checkbox is checked
+      if (importCompendium && importData.compendiumData) {
+        ui.notifications.info("Importing compendium data...");
+        await this._importCompendiumItems(importData.compendiumData.items);
+        await this._importCompendiumClasses(importData.compendiumData.classes);
+      } else if (importCompendium && !importData.compendiumData) {
+        ui.notifications.warn(
+          "No compendium data found. Enable 'Include Compendium Data' in the browser extension and re-copy."
+        );
+      }
+
       ui.notifications.info("Importing character...");
-      
+
       const actor = await this._createOrUpdateActor(importData.characterData);
-      
+
       ui.notifications.success(`Character "${actor.name}" imported successfully!`);
       this.close();
       actor.sheet.render(true);
-      
+
     } catch (error) {
       console.error("Import error:", error);
       ui.notifications.error(`Import failed: ${error.message}`);
@@ -833,6 +845,175 @@ class DDBImporterDialog extends FormApplication {
     } catch (error) {
       console.error("Failed to save to custom compendium:", error);
       return null;
+    }
+  }
+
+  async _importCompendiumItems(items) {
+    if (!Array.isArray(items) || items.length === 0) {
+      console.log("DDB Importer | No compendium items to import");
+      return;
+    }
+
+    let imported = 0;
+    let skipped = 0;
+
+    for (const item of items) {
+      // Handle both raw DDB format and pre-processed format
+      const def = item.definition || item;
+      const name = def.name || item.name;
+      if (!name) continue;
+
+      // Check if already exists in custom compendium
+      const existing = await this._findInCompendium(name, "item");
+      if (existing) {
+        skipped++;
+        continue;
+      }
+
+      const itemData = {
+        name: name,
+        type: this._getItemType(def),
+        img: def.avatarUrl || def.largeAvatarUrl || "icons/svg/item-bag.svg",
+        system: {
+          description: {
+            value: def.description || def.snippet || ""
+          },
+          weight: def.weight || 0,
+          price: {
+            value: def.cost || 0,
+            denomination: "gp"
+          },
+          identified: true,
+          rarity: this._getRarity(def.rarity || def.rarityId),
+          attunement: def.requiresAttunement ? 1 : 0,
+          source: {
+            custom: "D&D Beyond Compendium"
+          }
+        }
+      };
+
+      // Add weapon properties if applicable
+      if (def.damage) {
+        itemData.system.damage = {
+          parts: [[def.damage.diceString || "", def.damageType || ""]],
+          versatile: ""
+        };
+        itemData.system.actionType = "mwak";
+        itemData.system.properties = this._getWeaponProperties(def);
+      }
+
+      // Add armor properties if applicable
+      if (def.armorClass !== undefined) {
+        itemData.system.armor = {
+          value: def.armorClass,
+          type: this._getArmorType(def.type || def.armorType)
+        };
+      }
+
+      // Add active effects from granted modifiers
+      const modifiers = def.grantedModifiers || item.grantedModifiers;
+      if (modifiers && modifiers.length > 0) {
+        itemData.effects = this._createActiveEffects(modifiers, name);
+      }
+
+      await this._saveToCustomCompendium(itemData);
+      imported++;
+    }
+
+    if (imported > 0 || skipped > 0) {
+      ui.notifications.info(
+        `Compendium items: ${imported} imported, ${skipped} already existed`
+      );
+    }
+  }
+
+  async _importCompendiumClasses(classes) {
+    if (!Array.isArray(classes) || classes.length === 0) {
+      console.log("DDB Importer | No compendium classes to import");
+      return;
+    }
+
+    let imported = 0;
+    let skipped = 0;
+
+    for (const cls of classes) {
+      const def = cls.definition || cls;
+      const name = def.name || cls.name;
+      if (!name) continue;
+
+      // Check if already exists in custom compendium
+      const existing = await this._findInCompendium(name, "class");
+      if (existing) {
+        skipped++;
+        continue;
+      }
+
+      const classData = {
+        name: name,
+        type: "class",
+        img: def.portraitAvatarUrl || def.avatarUrl || "icons/svg/book.svg",
+        system: {
+          description: {
+            value: def.description || ""
+          },
+          hitDice: `d${def.hitDice || 8}`,
+          hitDiceUsed: 0,
+          levels: 0,
+          source: {
+            custom: "D&D Beyond Compendium"
+          }
+        }
+      };
+
+      await this._saveToCustomCompendium(classData);
+      imported++;
+
+      // Also import class features if available
+      const classFeatures = def.classFeatures || cls.classFeatures || [];
+      for (const feature of classFeatures) {
+        const featDef = feature.definition || feature;
+        const featName = featDef.name || feature.name;
+        if (!featName) continue;
+
+        const existingFeat = await this._findInCompendium(featName, "feat");
+        if (existingFeat) continue;
+
+        const featureData = {
+          name: featName,
+          type: "feat",
+          img: "icons/svg/aura.svg",
+          system: {
+            description: {
+              value: featDef.description || ""
+            },
+            activation: {
+              type: this._getActivationType(featDef.activation),
+              cost: featDef.activation?.activationTime || null
+            },
+            uses: this._getFeatureUses(featDef.limitedUse),
+            requirements: name,
+            type: {
+              value: "class"
+            },
+            source: {
+              custom: "D&D Beyond Compendium"
+            }
+          }
+        };
+
+        const modifiers = featDef.grantedModifiers;
+        if (modifiers && modifiers.length > 0) {
+          featureData.effects = this._createActiveEffects(modifiers, featName);
+        }
+
+        await this._saveToCustomCompendium(featureData);
+      }
+    }
+
+    if (imported > 0 || skipped > 0) {
+      ui.notifications.info(
+        `Compendium classes: ${imported} imported, ${skipped} already existed`
+      );
     }
   }
 

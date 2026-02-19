@@ -72,38 +72,69 @@ document.getElementById('copy-character-btn').addEventListener('click', () => {
   browserAPI.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tab = tabs[0];
     const characterId = getCharacterIdFromTab(tab);
-    
+
     if (!characterId) {
       showStatus('❌ Not on a character page', 'error');
       return;
     }
-    
-    showStatus('⏳ Fetching character data...', 'info');
-    
+
+    const includeCompendium = document.getElementById('include-compendium').checked;
+    showStatus(includeCompendium
+      ? '⏳ Fetching character & compendium data...'
+      : '⏳ Fetching character data...', 'info');
+
     browserAPI.runtime.sendMessage({ action: "getCobaltCookie" }, (cookieResponse) => {
       if (!cookieResponse.success) {
         showStatus(`✗ ${cookieResponse.error}`, 'error');
         return;
       }
-      
+
       browserAPI.runtime.sendMessage({
         action: "fetchCharacterData",
         characterId: characterId,
         cobaltCookie: cookieResponse.cookie
       }, (dataResponse) => {
-        if (dataResponse.success) {
-          const exportData = {
-            cobaltCookie: cookieResponse.cookie,
-            characterUrl: tab.url,
-            characterId: characterId,
-            characterData: dataResponse.data,
-            timestamp: new Date().toISOString()
-          };
+        if (!dataResponse.success) {
+          showStatus(`✗ ${dataResponse.error}`, 'error');
+          return;
+        }
+
+        const exportData = {
+          cobaltCookie: cookieResponse.cookie,
+          characterUrl: tab.url,
+          characterId: characterId,
+          characterData: dataResponse.data,
+          timestamp: new Date().toISOString()
+        };
+
+        if (!includeCompendium) {
           copyToClipboard(JSON.stringify(exportData, null, 2));
           showStatus('✓ Character data copied!', 'success');
-        } else {
-          showStatus(`✗ ${dataResponse.error}`, 'error');
+          return;
         }
+
+        // Also fetch compendium data
+        browserAPI.runtime.sendMessage({
+          action: "fetchCompendiumData",
+          cobaltCookie: cookieResponse.cookie
+        }, (compendiumResponse) => {
+          if (compendiumResponse.success) {
+            exportData.compendiumData = compendiumResponse.data;
+            copyToClipboard(JSON.stringify(exportData, null, 2));
+            const itemCount = Array.isArray(exportData.compendiumData.items)
+              ? exportData.compendiumData.items.length : 0;
+            const classCount = Array.isArray(exportData.compendiumData.classes)
+              ? exportData.compendiumData.classes.length : 0;
+            showStatus(
+              `✓ Copied! (${itemCount} items, ${classCount} classes)`,
+              'success'
+            );
+          } else {
+            // Still copy character data even if compendium fetch fails
+            copyToClipboard(JSON.stringify(exportData, null, 2));
+            showStatus('✓ Character copied (compendium fetch failed)', 'success');
+          }
+        });
       });
     });
   });

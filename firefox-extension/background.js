@@ -20,7 +20,7 @@ browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   if (message.action === "fetchCharacterData") {
     const { characterId, cobaltCookie } = message;
-    
+
     fetch(`https://character-service.dndbeyond.com/character/v5/character/${characterId}`, {
       headers: {
         'Cookie': `CobaltSession=${cobaltCookie}`
@@ -33,7 +33,35 @@ browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
     .catch(error => {
       sendResponse({ success: false, error: error.message });
     });
-    
+
+    return true; // Will respond asynchronously
+  }
+
+  if (message.action === "fetchCompendiumData") {
+    const { cobaltCookie } = message;
+    const headers = { 'Cookie': `CobaltSession=${cobaltCookie}` };
+
+    Promise.all([
+      fetch('https://character-service.dndbeyond.com/character/v5/game-data/items', { headers })
+        .then(r => r.json())
+        .catch(() => ({ data: [] })),
+      fetch('https://character-service.dndbeyond.com/character/v5/game-data/classes', { headers })
+        .then(r => r.json())
+        .catch(() => ({ data: [] }))
+    ])
+    .then(([itemsResponse, classesResponse]) => {
+      sendResponse({
+        success: true,
+        data: {
+          items: itemsResponse.data || itemsResponse.results || itemsResponse || [],
+          classes: classesResponse.data || classesResponse.results || classesResponse || []
+        }
+      });
+    })
+    .catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+
     return true; // Will respond asynchronously
   }
 });
